@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd petagenda-local && npm run build",
+  "devCommand": "cd petagenda-local && npm run dev",
+  "installCommand": "cd petagenda-local && npm install",
+  "framework": "nextjs",
+  "outputDirectory": "petagenda-local/.next"
+}
