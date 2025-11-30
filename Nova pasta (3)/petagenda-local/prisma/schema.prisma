@@ -1,0 +1,193 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Petshop {
+  id                      String   @id @default(uuid())
+  slug                    String   @unique
+  nome                    String
+  telefone                String
+  email                   String?
+  endereco                String?
+  cidade                  String
+  logoUrl                 String?  @map("logo_url")
+  planoAtual              String   @default("free") @map("plano_atual")
+  planoExpiraEm           DateTime? @map("plano_expira_em")
+  limiteAgendamentosMes   Int      @default(30) @map("limite_agendamentos_mes")
+  configuracoes           Json     @default("{}")
+  ativo                   Boolean  @default(true)
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  usuarios                Usuario[]
+  servicos                Servico[]
+  agendamentos            Agendamento[]
+  transacoesPix           TransacaoPix[]
+  planosAssinatura        PlanoAssinatura[]
+
+  @@map("petshops")
+}
+
+model Usuario {
+  id                String   @id @default(uuid())
+  petshopId         String   @map("petshop_id")
+  nome              String
+  telefone          String
+  email             String?
+  senhaHash         String   @map("senha_hash")
+  role              String   @default("cliente")
+  ativo             Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  petshop           Petshop  @relation(fields: [petshopId], references: [id], onDelete: Cascade)
+  pets              Pet[]
+  agendamentos      Agendamento[]
+  agendamentosAtendidos Agendamento[] @relation("Funcionario")
+
+  @@unique([petshopId, telefone])
+  @@map("usuarios")
+}
+
+model Pet {
+  id                String   @id @default(uuid())
+  usuarioId         String   @map("usuario_id")
+  nome              String
+  raca              String?
+  porte             String?
+  idade             Int?
+  peso              Float?
+  observacoes       String?
+  fotoUrl           String?  @map("foto_url")
+  ativo             Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  usuario           Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  agendamentos      Agendamento[]
+  historicoAtendimentos HistoricoAtendimento[]
+
+  @@map("pets")
+}
+
+model Servico {
+  id                String   @id @default(uuid())
+  petshopId         String   @map("petshop_id")
+  nome              String
+  descricao         String?
+  preco             Float
+  duracaoMinutos    Int      @map("duracao_minutos") @default(60)
+  ativo             Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  petshop           Petshop  @relation(fields: [petshopId], references: [id], onDelete: Cascade)
+  agendamentos      Agendamento[]
+
+  @@map("servicos")
+}
+
+model Agendamento {
+  id                      String   @id @default(uuid())
+  petshopId               String   @map("petshop_id")
+  usuarioId               String   @map("usuario_id")
+  petId                   String   @map("pet_id")
+  servicoId               String   @map("servico_id")
+  funcionarioId           String?  @map("funcionario_id")
+  dataHora                DateTime @map("data_hora")
+  duracaoMinutos          Int      @map("duracao_minutos")
+  status                  String   @default("pendente")
+  observacoes             String?
+  lembreteEnviado         Boolean  @default(false) @map("lembrete_enviado")
+  confirmadoPeloCliente   Boolean  @default(false) @map("confirmado_pelo_cliente")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  petshop                 Petshop  @relation(fields: [petshopId], references: [id], onDelete: Cascade)
+  usuario                 Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  pet                     Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  servico                 Servico  @relation(fields: [servicoId], references: [id], onDelete: SetNull)
+  funcionario             Usuario? @relation("Funcionario", fields: [funcionarioId], references: [id], onDelete: SetNull)
+  
+  historicoAtendimento    HistoricoAtendimento?
+  transacaoPix            TransacaoPix?
+  logsWhatsapp            LogWhatsapp[]
+
+  @@unique([funcionarioId, dataHora])
+  @@map("agendamentos")
+}
+
+model HistoricoAtendimento {
+  id                String   @id @default(uuid())
+  agendamentoId     String   @unique @map("agendamento_id")
+  petId             String   @map("pet_id")
+  observacoes       String?
+  fotosAntes        Json     @default("[]") @map("fotos_antes")
+  fotosDepois       Json     @default("[]") @map("fotos_depois")
+  atendidoEm        DateTime @default(now()) @map("atendido_em")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  agendamento       Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  pet               Pet         @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("historico_atendimentos")
+}
+
+model TransacaoPix {
+  id                String   @id @default(uuid())
+  agendamentoId     String   @unique @map("agendamento_id")
+  petshopId         String   @map("petshop_id")
+  valor             Float
+  pixIdExterno      String?  @map("pix_id_externo")
+  qrCode            String?  @map("qr_code")
+  qrCodeBase64      String?  @map("qr_code_base64")
+  status            String   @default("pendente")
+  pagoEm            DateTime? @map("pago_em")
+  expiraEm          DateTime? @map("expira_em")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  agendamento       Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  petshop           Petshop     @relation(fields: [petshopId], references: [id], onDelete: Cascade)
+
+  @@map("transacoes_pix")
+}
+
+model PlanoAssinatura {
+  id                String   @id @default(uuid())
+  petshopId         String   @map("petshop_id")
+  plano             String
+  valor             Float
+  inicioEm          DateTime @map("inicio_em")
+  expiraEm          DateTime? @map("expira_em")
+  ativo             Boolean  @default(true)
+  canceladoEm       DateTime? @map("cancelado_em")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  petshop           Petshop  @relation(fields: [petshopId], references: [id], onDelete: Cascade)
+
+  @@map("planos_assinatura")
+}
+
+model LogWhatsapp {
+  id                String   @id @default(uuid())
+  agendamentoId     String   @map("agendamento_id")
+  tipo              String
+  telefone          String
+  mensagem          String
+  enviado           Boolean  @default(false)
+  erro              String?
+  enviadoEm         DateTime? @map("enviado_em")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  agendamento       Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+
+  @@map("logs_whatsapp")
+}
