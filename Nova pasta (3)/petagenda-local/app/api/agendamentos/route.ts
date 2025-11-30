@@ -56,6 +56,15 @@ export async function POST(request: Request) {
     const diaFim = new Date(novoInicio)
     diaFim.setHours(23, 59, 59, 999)
 
+    // Definir tipo para agendamentos com servico
+    type AgendamentoComServico = {
+      id: string
+      data_agendamento: string
+      servico: {
+        duracao_minutos: number
+      } | null
+    }
+
     const { data: agendamentosExistentes, error: checkError } = await supabase
       .from('agendamentos')
       .select(`
@@ -77,7 +86,7 @@ export async function POST(request: Request) {
 
     // Verificar se há conflito
     if (agendamentosExistentes && agendamentosExistentes.length > 0) {
-      for (const agendamento of agendamentosExistentes) {
+      for (const agendamento of agendamentosExistentes as AgendamentoComServico[]) {
         const existenteInicio = new Date(agendamento.data_agendamento)
         const duracaoExistente = agendamento.servico?.duracao_minutos || 60
         const existenteFim = new Date(existenteInicio.getTime() + duracaoExistente * 60000)
